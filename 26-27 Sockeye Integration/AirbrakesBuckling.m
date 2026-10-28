@@ -20,15 +20,15 @@ A = T .* W; % Finding the Area of the cross section
 Ix = (1/12).*T.*W.^3 + A.*y0.^2; % Calcuating area moment of inertia of the beam relative to rocket longitudinal axis
 MaxMoment = 2663; % Expected Aerodynamic Bending Load (lbf-in)
 MaxStress = (MaxMoment .* y0) ./ Ix; % Stress caused by aerodynamic bending @ max Q
-MaxAxial = 1325  % Max axial load at liftoff (lbf)
-MaxLoad   = MaxAxial + (MaxStress .* A); % Force on Spar
+MaxAxial = 1325;  % Max axial load at liftoff (lbf)
+MaxLoad   = MaxAxial + (MaxStress .* A); % Force on Spar (different for each possible size)
 %% Buckling critical load
 E = 10e6; % Elasticity Modulus (6061-T6) (psi)
 yield = 40000; % Tensile Yield Strength (6061-T6) (psi)
 K = 0.65; % effective length factor; k = .5 for fixed-fixed, but .65 is recommended
 Le = K * L; % effective length
 I_t = (1/12).*T.*W.^3; % Calculating moment of inertia of the beam about thickness axis
-I_w = (1/12).*T.^3 .*W % Moment of inertia for beam about radial width axis
+I_w = (1/12).*T.^3 .*W; % Moment of inertia for beam about radial width axis
 
 for i=1:size(I_t,1) % rows
     for j=1:size(I_t, 2) % cols
@@ -37,8 +37,9 @@ for i=1:size(I_t,1) % rows
 end
 r = sqrt(I ./ A); % radius of gyration
 S = Le ./ r; % slenderness ratio
-Scomp = sqrt(2*pi^2*E/yield) % Determination of whether or not to use Euler's Buckling Theorem or Johnson's Formula (Calculating the Slenderness)
+Scomp = sqrt(2*pi^2*E/yield); % Determination of whether or not to use Euler's Buckling Theorem or Johnson's Formula (Calculating the Slenderness)
 % Element-wise selection: use Euler where S > Scomp, Johnson otherwise
+% F is critical load
 useEuler = S > Scomp; % binary matrix that shows where statement is true (1)
 F = nan(size(S)); % empty matrix of all NaN; size matches meshgrid
 F(useEuler)  = pi^2 * E .* I(useEuler) ./ Le.^2; % Euler's Buckling theorem; (useEuler) auto applies to elements where Euler is true
@@ -55,7 +56,7 @@ title('FOS Contours vs Spar Thickness and Width')
 hold on
 contour(T, W, FOS, [1 1], 'k', 'LineWidth', 2)
 text(0.3,0.4,'FOS = 1','Color','k','FontWeight','bold')
-% Mark FOS at the design point: t = 0.5", w = 0.6"
+% Mark FOS at the design point: t = ", w = "
 t_mark = 0.48;
 w_mark = 0.63;
 FOS_mark = interp2(T, W, FOS, t_mark, w_mark);   % FOS at the chosen geometry
@@ -66,11 +67,13 @@ text(t_mark, w_mark, ...
     'Color', 'w', 'FontWeight', 'bold', ...
     'VerticalAlignment', 'bottom')
 hold off
+MOS_mark = FOS_mark - 2; % Margin of safety, using 2 as SARP baseline for analytical analysis only
 %% Console summary at the design point
 fprintf('--- Design point (t = %.2f", w = %.2f") ---\n', t_mark, w_mark);
 fprintf('Max applied load   : %.2f lbf\n', interp2(T, W, MaxLoad, t_mark, w_mark));
 fprintf('Buckling capacity  : %.2f lbf\n', interp2(T, W, F,        t_mark, w_mark));
 fprintf('Factor of Safety   : %.2f\n',     FOS_mark);
+fprintf('Margin of Safety   : %.2f\n', MOS_mark);
 %% Export data for sheets
 Tcol = T(:);
 Wcol = W(:);
