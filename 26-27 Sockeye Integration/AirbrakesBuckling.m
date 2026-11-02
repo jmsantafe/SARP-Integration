@@ -9,19 +9,21 @@ clc;
 % the face. Cases where the bending moment is not applied directly over a
 % pair of spars. i.e. the rocket is slightly rotated, are not accounted
 % for. 
-%% Geometry Parameters and Loads
+%% Inputs
 D = 6; % diameter of rocket
-L = 15; % Length of spar
+L = 11.5; % Length of spar
+MaxMoment = 4276; % Expected Aerodynamic Bending Load (lbf-in)
+MaxAxialLiftoff = 0;  % Max axial compressive load at liftoff (lbf)
+MaxShockLoad = 1018; % Max axial shock tensile force (lbf)
+%% Geometry Parameters and Loads
 t = 0.05:0.05:1.0; % Thickness range  of spar
 w = 0.1:0.05:1.5; % Width range of spar (radially)
 [T, W] = meshgrid(t, w); % T: each row is a copy of t. W: each column is a copy of. Allows us to test all combos of t, w
 y0 = 3 - W./2; % offset of spar from center
 A = T .* W; % Finding the Area of the cross section
 Ix = (1/12).*T.*W.^3 + A.*y0.^2; % Calcuating area moment of inertia of the beam relative to rocket longitudinal axis
-MaxMoment = 2663; % Expected Aerodynamic Bending Load (lbf-in)
 MaxStress = (MaxMoment .* y0) ./ Ix; % Stress caused by aerodynamic bending @ max Q
-MaxAxial = 1325;  % Max axial load at liftoff (lbf)
-MaxLoad   = MaxAxial + (MaxStress .* A); % Force on Spar (different for each possible size)
+MaxLoad   = MaxAxialLiftoff + (MaxStress .* A); % Force on Spar (different for each possible size)
 %% Buckling critical load
 E = 10e6; % Elasticity Modulus (6061-T6) (psi)
 yield = 40000; % Tensile Yield Strength (6061-T6) (psi)
@@ -35,6 +37,7 @@ for i=1:size(I_t,1) % rows
         I(i,j) = min(I_t(i,j), I_w(i,j)); % smallest I for each possible shape
     end
 end
+
 r = sqrt(I ./ A); % radius of gyration
 S = Le ./ r; % slenderness ratio
 Scomp = sqrt(2*pi^2*E/yield); % Determination of whether or not to use Euler's Buckling Theorem or Johnson's Formula (Calculating the Slenderness)
@@ -68,12 +71,21 @@ text(t_mark, w_mark, ...
     'VerticalAlignment', 'bottom')
 hold off
 MOS_mark = FOS_mark - 2; % Margin of safety, using 2 as SARP baseline for analytical analysis only
+%% Tensile Bolt Stress
+% One bolt per-spar for 4 spars; data taken from SAE table in 'Sockeye Bulkhead Config
+% Sheet'
+UltStrength = 4610; % ultimate tensile strength in lbf
+MaxTensileBend = interp2(T, W, MaxLoad, t_mark, w_mark); % max load from bending; average over spar for one spar
+MaxShockLoad = MaxShockLoad / 4; % Shock force per-spar (lbf). Assume load is directly aligned with axis
+TotalTensileLoad = MaxTensileBend + MaxShockLoad;
+TensileFOS = TotalTensileLoad
 %% Console summary at the design point
 fprintf('--- Design point (t = %.2f", w = %.2f") ---\n', t_mark, w_mark);
 fprintf('Max applied load   : %.2f lbf\n', interp2(T, W, MaxLoad, t_mark, w_mark));
 fprintf('Buckling capacity  : %.2f lbf\n', interp2(T, W, F,        t_mark, w_mark));
 fprintf('Factor of Safety   : %.2f\n',     FOS_mark);
 fprintf('Margin of Safety   : %.2f\n', MOS_mark);
+fprintf('Tensile Bolt FOS')
 %% Export data for sheets
 Tcol = T(:);
 Wcol = W(:);
@@ -83,6 +95,7 @@ BucklingLoadCol = F(:);
 DataTable = table(Tcol, Wcol, FOScol, MaxLoadCol, BucklingLoadCol, ...
     'VariableNames', {'Thickness_in','Width_in','FOS','MaxLoad_lbf','BucklingLoad_lbf'});
 writetable(DataTable, 'spar_FOS_results.csv');
+
 %% References
 % https://mechanicalc.com/calculators/column-buckling/validation gives the
 % equation to calculate the critical slenderness ratio
