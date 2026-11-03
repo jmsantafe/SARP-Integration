@@ -12,9 +12,10 @@ clc;
 %% Inputs
 D = 6; % diameter of rocket
 L = 11.5; % Length of spar
-MaxMoment = 4276; % Expected Aerodynamic Bending Load (lbf-in)
-MaxAxialLiftoff = 0;  % Max axial compressive load at liftoff (lbf)
-MaxShockLoad = 1018; % Max axial shock tensile force (lbf)
+MaxMoment = 3329.871361; % Expected Aerodynamic Bending Load at aft bulkhead (lbf-in)
+MaxAxial = 640.26;  % Max axial compressive load (lbf)
+MaxShockLoad = 960; % Max axial shock tensile force (lbf)
+MaxShockLoad = MaxShockLoad * 1.5; % dynamic loading factor
 %% Geometry Parameters and Loads
 t = 0.05:0.05:1.0; % Thickness range  of spar
 w = 0.1:0.05:1.5; % Width range of spar (radially)
@@ -23,7 +24,7 @@ y0 = 3 - W./2; % offset of spar from center
 A = T .* W; % Finding the Area of the cross section
 Ix = (1/12).*T.*W.^3 + A.*y0.^2; % Calcuating area moment of inertia of the beam relative to rocket longitudinal axis
 MaxStress = (MaxMoment .* y0) ./ Ix; % Stress caused by aerodynamic bending @ max Q
-MaxLoad   = MaxAxialLiftoff + (MaxStress .* A); % Force on Spar (different for each possible size)
+MaxLoad   = MaxAxial + (MaxStress .* A); % Force on Spar (different for each possible size)
 %% Buckling critical load
 E = 10e6; % Elasticity Modulus (6061-T6) (psi)
 yield = 40000; % Tensile Yield Strength (6061-T6) (psi)
@@ -74,18 +75,18 @@ MOS_mark = FOS_mark - 2; % Margin of safety, using 2 as SARP baseline for analyt
 %% Tensile Bolt Stress
 % One bolt per-spar for 4 spars; data taken from SAE table in 'Sockeye Bulkhead Config
 % Sheet'
-UltStrength = 4610; % ultimate tensile strength in lbf
+UltStrength = 4610; % ultimate tensile strength in lbf per fastener
 MaxTensileBend = interp2(T, W, MaxLoad, t_mark, w_mark); % max load from bending; average over spar for one spar
 MaxShockLoad = MaxShockLoad / 4; % Shock force per-spar (lbf). Assume load is directly aligned with axis
-TotalTensileLoad = MaxTensileBend + MaxShockLoad;
-TensileFOS = TotalTensileLoad
+TotalTensileLoad = MaxTensileBend + MaxShockLoad; % per-fastener
+TensileFOS = TotalTensileLoad / UltStrength;
 %% Console summary at the design point
 fprintf('--- Design point (t = %.2f", w = %.2f") ---\n', t_mark, w_mark);
 fprintf('Max applied load   : %.2f lbf\n', interp2(T, W, MaxLoad, t_mark, w_mark));
 fprintf('Buckling capacity  : %.2f lbf\n', interp2(T, W, F,        t_mark, w_mark));
 fprintf('Factor of Safety   : %.2f\n',     FOS_mark);
 fprintf('Margin of Safety   : %.2f\n', MOS_mark);
-fprintf('Tensile Bolt FOS')
+fprintf('Tensile Bolt FOS   : %.2f\n', TensileFOS);
 %% Export data for sheets
 Tcol = T(:);
 Wcol = W(:);
