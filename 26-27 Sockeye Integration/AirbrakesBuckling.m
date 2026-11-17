@@ -11,11 +11,10 @@ clc;
 % for. 
 %% Inputs
 D = 6; % diameter of rocket
-L = 11.5; % Length of spar
-MaxMoment = 3329.871361; % Expected Aerodynamic Bending Load at aft bulkhead (lbf-in)
-MaxAxial = 640.26;  % Max axial compressive load (lbf)
-MaxShockLoad = 960; % Max axial shock tensile force (lbf)
-MaxShockLoad = MaxShockLoad * 1.5; % dynamic loading factor
+L = 13.6; % Length of spar
+MaxMoment = 3330; % Expected Aerodynamic Bending Load at aft bulkhead (lbf-in)
+MaxAxial = 1557;  % Max axial compressive load (lbf)
+UltStrength = 4610; % ultimate tensile strength in lbf per fastener
 %% Geometry Parameters and Loads
 t = 0.05:0.05:1.0; % Thickness range  of spar
 w = 0.1:0.05:1.5; % Width range of spar (radially)
@@ -23,12 +22,12 @@ w = 0.1:0.05:1.5; % Width range of spar (radially)
 y0 = 3 - W./2; % offset of spar from center
 A = T .* W; % Finding the Area of the cross section
 Ix = (1/12).*T.*W.^3 + A.*y0.^2; % Calcuating area moment of inertia of the beam relative to rocket longitudinal axis
-MaxStress = (MaxMoment .* y0) ./ Ix; % Stress caused by aerodynamic bending @ max Q
-MaxLoad   = MaxAxial + (MaxStress .* A); % Force on Spar (different for each possible size)
+MaxStress = (MaxMoment .* y0) ./ Ix; % Compressive stress caused by aerodynamic bending @ max Q
+MaxLoad   = MaxAxial + (MaxStress .* A); % Compressive force on Spar (different for each possible size)
 %% Buckling critical load
 E = 10e6; % Elasticity Modulus (6061-T6) (psi)
 yield = 40000; % Tensile Yield Strength (6061-T6) (psi)
-K = 0.65; % effective length factor; k = .5 for fixed-fixed, but .65 is recommended
+K = 1; % effective length factor; recommended design point for pin-pin
 Le = K * L; % effective length
 I_t = (1/12).*T.*W.^3; % Calculating moment of inertia of the beam about thickness axis
 I_w = (1/12).*T.^3 .*W; % Moment of inertia for beam about radial width axis
@@ -61,8 +60,8 @@ hold on
 contour(T, W, FOS, [1 1], 'k', 'LineWidth', 2)
 text(0.3,0.4,'FOS = 1','Color','k','FontWeight','bold')
 % Mark FOS at the design point: t = ", w = "
-t_mark = 0.48;
-w_mark = 0.63;
+t_mark = 0.6;
+w_mark = 0.6;
 FOS_mark = interp2(T, W, FOS, t_mark, w_mark);   % FOS at the chosen geometry
 plot(t_mark, w_mark, 'rp', 'MarkerSize', 14, ...
     'MarkerFaceColor', 'r', 'LineWidth', 1.5)
@@ -71,15 +70,13 @@ text(t_mark, w_mark, ...
     'Color', 'w', 'FontWeight', 'bold', ...
     'VerticalAlignment', 'bottom')
 hold off
-MOS_mark = FOS_mark - 2; % Margin of safety, using 2 as SARP baseline for analytical analysis only
+MOS_mark = (FOS_mark/2) - 1; % Margin of safety, using 2 as SARP baseline for analytical analysis only
 %% Tensile Bolt Stress
 % One bolt per-spar for 4 spars; data taken from SAE table in 'Sockeye Bulkhead Config
 % Sheet'
-UltStrength = 4610; % ultimate tensile strength in lbf per fastener
 MaxTensileBend = interp2(T, W, MaxLoad, t_mark, w_mark); % max load from bending; average over spar for one spar
-MaxShockLoad = MaxShockLoad / 4; % Shock force per-spar (lbf). Assume load is directly aligned with axis
-TotalTensileLoad = MaxTensileBend + MaxShockLoad; % per-fastener
-TensileFOS = TotalTensileLoad / UltStrength;
+TotalTensileLoad = MaxTensileBend - MaxAxial; % per-fastener. Difference in tensile bending in 2 spars and axial compression in all four
+TensileFOS = UltStrength / TotalTensileLoad;
 %% Console summary at the design point
 fprintf('--- Design point (t = %.2f", w = %.2f") ---\n', t_mark, w_mark);
 fprintf('Max applied load   : %.2f lbf\n', interp2(T, W, MaxLoad, t_mark, w_mark));
